@@ -7,7 +7,7 @@ import { createPayment } from '@/lib/db/payments'
 export async function POST(request: NextRequest) {
   try {
     // Get authenticated user
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

@@ -47,9 +47,13 @@ export default function ListingsContainer() {
       setSearchLimitReached(false)
       
       try {
-        // Prepare search parameters
+        // Prepare search parameters for API - convert arrays to strings
         const searchParams = {
-          ...filters,
+          city: filters.city,
+          minPrice: filters.price_min?.toString(),
+          maxPrice: filters.price_max?.toString(),
+          bedrooms: filters.bedrooms?.join(','),
+          propertyType: filters.property_type?.join(','),
           page
         }
         

@@ -58,7 +58,7 @@ export default function AdminDashboard() {
         
         // Calculate stats from listings data
         const allListings = response.data.listings || []
-        const activeListings = allListings.filter(l => l.is_active)
+        const activeListings = allListings.filter((l: Listing) => l.is_active)
         
         setStats({
           totalListings: allListings.length,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -8,7 +8,7 @@ import { apiClient } from '@/lib/api-client'
 import { Mail, Lock, User } from 'lucide-react'
 import { FaFacebook } from 'react-icons/fa'
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const plan = searchParams.get('plan')
@@ -234,5 +234,13 @@ export default function SignupPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignupForm />
+    </Suspense>
   )
 }

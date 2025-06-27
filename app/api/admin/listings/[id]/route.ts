@@ -46,7 +46,7 @@ async function checkAdmin(request: Request) {
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Rate limiting
@@ -66,13 +66,14 @@ export async function PATCH(
       )
     }
     
+    const { id } = await params
     const updates = await request.json()
     
     // Update listing
     const { data, error } = await supabaseAdmin
       .from('listings')
       .update(updates)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
     
@@ -96,7 +97,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Rate limiting
@@ -116,11 +117,13 @@ export async function DELETE(
       )
     }
     
+    const { id } = await params
+    
     // Soft delete by setting is_active to false
     const { error } = await supabaseAdmin
       .from('listings')
       .update({ is_active: false })
-      .eq('id', params.id)
+      .eq('id', id)
     
     if (error) {
       console.error('Listing delete error:', error)

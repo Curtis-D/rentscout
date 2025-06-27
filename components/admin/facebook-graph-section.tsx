@@ -46,10 +46,7 @@ export default function FacebookGraphSection() {
 
       if (response.error) {
         setError(response.error)
-        // Show additional details if available
-        if (response.details) {
-          console.error('Facebook API Error Details:', response.details)
-        }
+        console.error('Facebook API Error:', response.error)
       } else {
         setSuccess('Facebook Graph API fetch completed successfully!')
         setLastFetch(new Date().toLocaleString())
