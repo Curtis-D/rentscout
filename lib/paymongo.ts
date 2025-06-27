@@ -1,18 +1,23 @@
 import axios from 'axios'
 
-const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY!
-const PAYMONGO_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYMONGO_PUBLIC_KEY!
-
-// Base64 encode the secret key for API authentication
-const encodedKey = Buffer.from(PAYMONGO_SECRET_KEY).toString('base64')
-
-const paymongoApi = axios.create({
-  baseURL: 'https://api.paymongo.com/v1',
-  headers: {
-    'Authorization': `Basic ${encodedKey}`,
-    'Content-Type': 'application/json',
-  },
-})
+const getPaymongoApi = () => {
+  const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY
+  
+  if (!PAYMONGO_SECRET_KEY) {
+    throw new Error('PAYMONGO_SECRET_KEY is not configured')
+  }
+  
+  // Base64 encode the secret key for API authentication
+  const encodedKey = Buffer.from(PAYMONGO_SECRET_KEY).toString('base64')
+  
+  return axios.create({
+    baseURL: 'https://api.paymongo.com/v1',
+    headers: {
+      'Authorization': `Basic ${encodedKey}`,
+      'Content-Type': 'application/json',
+    },
+  })
+}
 
 export interface CreatePaymentIntentData {
   amount: number // in centavos
@@ -34,6 +39,7 @@ export interface PaymentMethod {
 // Create a payment intent for subscription
 export async function createPaymentIntent(data: CreatePaymentIntentData) {
   try {
+    const paymongoApi = getPaymongoApi()
     const response = await paymongoApi.post('/payment_intents', {
       data: {
         type: 'payment_intent',
@@ -63,6 +69,7 @@ export async function createPaymentIntent(data: CreatePaymentIntentData) {
 // Attach payment method to payment intent
 export async function attachPaymentMethod(paymentIntentId: string, paymentMethodId: string) {
   try {
+    const paymongoApi = getPaymongoApi()
     const response = await paymongoApi.post(`/payment_intents/${paymentIntentId}/attach`, {
       data: {
         type: 'payment_intent',
@@ -83,6 +90,7 @@ export async function attachPaymentMethod(paymentIntentId: string, paymentMethod
 // Retrieve payment intent status
 export async function getPaymentIntent(paymentIntentId: string) {
   try {
+    const paymongoApi = getPaymongoApi()
     const response = await paymongoApi.get(`/payment_intents/${paymentIntentId}`)
     return response.data.data
   } catch (error: any) {
@@ -108,7 +116,7 @@ export async function createPaymentMethod(type: string, details: any, billing: a
       },
       {
         headers: {
-          'Authorization': `Basic ${Buffer.from(PAYMONGO_PUBLIC_KEY).toString('base64')}`,
+          'Authorization': `Basic ${Buffer.from(process.env.NEXT_PUBLIC_PAYMONGO_PUBLIC_KEY || '').toString('base64')}`,
           'Content-Type': 'application/json',
         }
       }
