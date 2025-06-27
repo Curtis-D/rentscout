@@ -1,0 +1,151 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+
+export default function AuthCallbackPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const plan = searchParams.get('plan')
+  const [error, setError] = useState<string | null>(null)
+  const [processing, setProcessing] = useState(true)
+
+  const handleCallback = useCallback(async () => {
+    try {
+      // Check for OAuth error first
+      const error = searchParams.get('error')
+      const errorDescription = searchParams.get('error_description')
+      
+      if (error) {
+        console.error('OAuth error:', error, errorDescription)
+        setError(errorDescription || error)
+        setTimeout(() => router.push('/auth/login'), 2000)
+        return
+      }
+
+      // For Facebook OAuth, Supabase might already handle the session
+      // Let's check if we already have a session first
+      console.log('Checking for existing session...')
+      const { data: { session: existingSession }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (existingSession) {
+        console.log('Found existing session for:', existingSession.user.email)
+        
+        // Determine redirect URL
+        const pendingPremium = localStorage.getItem('pendingPremiumUpgrade')
+        let redirectUrl = '/dashboard'
+        
+        if (pendingPremium || plan === 'premium') {
+          localStorage.removeItem('pendingPremiumUpgrade')
+          redirectUrl = '/upgrade/premium'
+        }
+
+        // Use window.location for a hard redirect
+        window.location.href = redirectUrl
+        return
+      }
+
+      // If no session, try to exchange code
+      const code = searchParams.get('code')
+      
+      if (!code) {
+        console.log('No code parameter found, waiting for auth state...')
+        // Sometimes Supabase handles the auth internally
+        // Let's wait a bit and check again
+        setTimeout(async () => {
+          const { data: { session: delayedSession } } = await supabase.auth.getSession()
+          if (delayedSession) {
+            console.log('Session found after delay')
+            window.location.href = '/dashboard'
+          } else {
+            console.error('No session after delay')
+            setError('Authentication failed')
+            setTimeout(() => router.push('/auth/login'), 2000)
+          }
+        }, 2000)
+        return
+      }
+
+      console.log('Attempting to exchange code for session...')
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Exchange code timeout')), 10000)
+      })
+
+      // Race between exchange and timeout
+      const exchangePromise = supabase.auth.exchangeCodeForSession(code)
+      
+      const { data, error: exchangeError } = await Promise.race([
+        exchangePromise,
+        timeoutPromise
+      ]).then(result => result as any).catch(error => ({ data: null, error }))
+      
+      if (exchangeError) {
+        console.error('Error exchanging code:', exchangeError)
+        setError(exchangeError.message || 'Failed to authenticate')
+        setTimeout(() => router.push('/auth/login'), 2000)
+        return
+      }
+
+      if (!data?.session) {
+        console.error('No session returned from exchange')
+        setError('Failed to establish session')
+        setTimeout(() => router.push('/auth/login'), 2000)
+        return
+      }
+
+      // Session established successfully
+      console.log('Session established for:', data.session.user.email)
+      
+      // Determine redirect URL
+      const pendingPremium = localStorage.getItem('pendingPremiumUpgrade')
+      let redirectUrl = '/dashboard'
+      
+      if (pendingPremium || plan === 'premium') {
+        localStorage.removeItem('pendingPremiumUpgrade')
+        redirectUrl = '/upgrade/premium'
+      }
+
+      // Use window.location for a hard redirect
+      window.location.href = redirectUrl
+    } catch (error) {
+      console.error('Callback error:', error)
+      setError(error instanceof Error ? error.message : 'Unknown error')
+      setTimeout(() => router.push('/auth/login'), 2000)
+    } finally {
+      setProcessing(false)
+    }
+  }, [router, searchParams, plan])
+
+  useEffect(() => {
+    handleCallback()
+  }, [handleCallback])
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        {error ? (
+          <>
+            <h2 className="text-2xl font-semibold text-red-600 mb-4">
+              Authentication Error
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">{error}</p>
+            <p className="text-sm text-gray-500">Redirecting to login...</p>
+          </>
+        ) : (
+          <>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              Verifying your account...
+            </h2>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mx-auto"></div>
+            <p className="text-sm text-gray-600 mt-4">
+              {processing ? 'Setting up your session...' : 'Redirecting...'}
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
